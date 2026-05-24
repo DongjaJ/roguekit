@@ -75,6 +75,33 @@ impl Curve {
 
         Some(points[0])
     }
+
+    /// Samples this curve as a Bezier curve using integer points.
+    ///
+    /// `steps` is the number of curve segments to sample. A non-empty curve
+    /// sampled with `steps > 0` returns `steps + 1` points.
+    #[must_use]
+    #[allow(clippy::cast_precision_loss)]
+    pub fn bezier_points(&self, steps: usize) -> Vec<Point> {
+        if self.control_points.is_empty() {
+            return Vec::new();
+        }
+
+        if steps == 0 {
+            return self
+                .bezier_point(0.0)
+                .map(Point::from_vec2)
+                .into_iter()
+                .collect();
+        }
+
+        (0..=steps)
+            .filter_map(|i| {
+                let t = i as f32 / steps as f32;
+                self.bezier_point(t).map(Point::from_vec2)
+            })
+            .collect()
+    }
 }
 
 impl From<Vec<Point>> for Curve {
@@ -147,6 +174,7 @@ mod tests {
         let curve = Curve::default();
 
         assert_eq!(curve.bezier_point(0.5), None);
+        assert!(curve.bezier_points(10).is_empty());
     }
 
     #[test]
@@ -203,5 +231,22 @@ mod tests {
         assert_eq!(curve.bezier_point(f32::NAN), None);
         assert_eq!(curve.bezier_point(f32::INFINITY), None);
         assert_eq!(curve.bezier_point(f32::NEG_INFINITY), None);
+    }
+
+    #[test]
+    fn zero_step_bezier_sampling_returns_start_point() {
+        let curve = Curve::new(vec![Point::new(2, 3), Point::new(6, 9)]);
+
+        assert_eq!(curve.bezier_points(0), vec![Point::new(2, 3)]);
+    }
+
+    #[test]
+    fn bezier_sampling_returns_steps_plus_one_points() {
+        let curve = Curve::new(vec![Point::new(0, 0), Point::new(10, 10)]);
+        let points = curve.bezier_points(4);
+
+        assert_eq!(points.len(), 5);
+        assert_eq!(points.first(), Some(&Point::new(0, 0)));
+        assert_eq!(points.last(), Some(&Point::new(10, 10)));
     }
 }
