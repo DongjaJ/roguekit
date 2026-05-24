@@ -1,4 +1,4 @@
-use crate::prelude::Point;
+use crate::prelude::{Point, PointF};
 
 /// Defines a two-dimensional curve by its control points.
 ///
@@ -48,6 +48,33 @@ impl Curve {
     pub fn last(&self) -> Option<Point> {
         self.control_points.last().copied()
     }
+
+    /// Evaluates this curve as a Bezier curve at parameter `t`.
+    ///
+    /// `t` is typically in the range `0.0..=1.0`, where `0.0` returns the
+    /// first control point and `1.0` returns the last control point. Values
+    /// outside that range are evaluated without clamping.
+    #[must_use]
+    pub fn bezier_point(&self, t: f32) -> Option<PointF> {
+        if self.control_points.is_empty() || !t.is_finite() {
+            return None;
+        }
+
+        let mut points: Vec<PointF> = self
+            .control_points
+            .iter()
+            .map(|point| point.to_vec2())
+            .collect();
+
+        while points.len() > 1 {
+            points = points
+                .windows(2)
+                .map(|segment| segment[0] * (1.0 - t) + segment[1] * t)
+                .collect();
+        }
+
+        Some(points[0])
+    }
 }
 
 impl From<Vec<Point>> for Curve {
@@ -64,7 +91,22 @@ impl From<&[Point]> for Curve {
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::{Curve, Point};
+    use crate::prelude::{Curve, Point, PointF};
+
+    fn assert_pointf_eq(actual: PointF, expected_x: f32, expected_y: f32) {
+        const EPSILON: f32 = 0.001;
+
+        assert!(
+            (actual.x - expected_x).abs() < EPSILON,
+            "expected x to be {expected_x}, got {}",
+            actual.x
+        );
+        assert!(
+            (actual.y - expected_y).abs() < EPSILON,
+            "expected y to be {expected_y}, got {}",
+            actual.y
+        );
+    }
 
     #[test]
     fn new_curve_stores_control_points() {
@@ -98,5 +140,68 @@ mod tests {
         let curve = Curve::from(points.as_slice());
 
         assert_eq!(curve.control_points(), &points);
+    }
+
+    #[test]
+    fn empty_curve_has_no_bezier_points() {
+        let curve = Curve::default();
+
+        assert_eq!(curve.bezier_point(0.5), None);
+    }
+
+    #[test]
+    fn single_control_point_bezier_returns_that_point() {
+        let curve = Curve::new(vec![Point::new(3, 7)]);
+
+        assert_pointf_eq(curve.bezier_point(0.0).unwrap(), 3.0, 7.0);
+        assert_pointf_eq(curve.bezier_point(0.5).unwrap(), 3.0, 7.0);
+        assert_pointf_eq(curve.bezier_point(1.0).unwrap(), 3.0, 7.0);
+    }
+
+    #[test]
+    fn linear_bezier_interpolates_between_two_points() {
+        let curve = Curve::new(vec![Point::new(0, 0), Point::new(10, 10)]);
+
+        assert_pointf_eq(curve.bezier_point(0.5).unwrap(), 5.0, 5.0);
+    }
+
+    #[test]
+    fn quadratic_bezier_evaluates_midpoint() {
+        let curve = Curve::new(vec![
+            Point::new(0, 0),
+            Point::new(10, 10),
+            Point::new(20, 0),
+        ]);
+
+        assert_pointf_eq(curve.bezier_point(0.5).unwrap(), 10.0, 5.0);
+    }
+
+    #[test]
+    fn cubic_bezier_evaluates_midpoint() {
+        let curve = Curve::new(vec![
+            Point::new(0, 0),
+            Point::new(0, 10),
+            Point::new(10, 10),
+            Point::new(10, 0),
+        ]);
+
+        assert_pointf_eq(curve.bezier_point(0.5).unwrap(), 5.0, 7.5);
+    }
+
+    #[test]
+    fn bezier_endpoints_match_first_and_last_control_points() {
+        let curve = Curve::new(vec![Point::new(1, 2), Point::new(5, 8), Point::new(9, 3)]);
+
+        assert_pointf_eq(curve.bezier_point(0.0).unwrap(), 1.0, 2.0);
+        assert_pointf_eq(curve.bezier_point(1.0).unwrap(), 9.0, 3.0);
+    }
+
+    #[test]
+    fn non_finite_bezier_parameter_returns_none() {
+        let curve = Curve::new(vec![Point::new(0, 0), Point::new(10, 10)]);
+
+        assert_eq!(curve.bezier_point(f32::NAN), None);
+        assert_eq!(curve.bezier_point(f32::INFINITY), None);
+        assert_eq!(curve.bezier_point(f32::NEG_INFINITY), None);
     }
 }
