@@ -1,7 +1,8 @@
 use bracket_geometry::prelude::*;
 use crossterm::queue;
 use crossterm::style::Print;
-use std::io::{stdout, Write};
+use std::io::stdout;
+use std::io::Write;
 
 const WIDTH: i32 = 40;
 const HEIGHT: i32 = 16;
