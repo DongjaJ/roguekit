@@ -3,26 +3,36 @@ use crossterm::queue;
 use crossterm::style::Print;
 use std::io::{stdout, Write};
 
-fn main() {
-    let curve = Curve::new(vec![Point::new(1, 8), Point::new(4, 1), Point::new(8, 8)]);
+const WIDTH: i32 = 40;
+const HEIGHT: i32 = 16;
 
-    let mut fake_console: Vec<char> = vec!['.'; 100];
-    for point in curve.bezier_points(32) {
-        if point.x >= 0 && point.x < 10 && point.y >= 0 && point.y < 10 {
-            let idx = ((point.y * 10) + point.x) as usize;
+fn main() {
+    let curve = Curve::new(vec![
+        Point::new(2, 13),
+        Point::new(6, 1),
+        Point::new(15, 4),
+        Point::new(23, 15),
+        Point::new(31, 2),
+        Point::new(37, 12),
+    ]);
+
+    let mut fake_console: Vec<char> = vec!['.'; (WIDTH * HEIGHT) as usize];
+    for point in curve.bezier_points(160) {
+        if point.x >= 0 && point.x < WIDTH && point.y >= 0 && point.y < HEIGHT {
+            let idx = ((point.y * WIDTH) + point.x) as usize;
             fake_console[idx] = '*';
         }
     }
 
     for control_point in curve.control_points() {
-        let idx = ((control_point.y * 10) + control_point.x) as usize;
+        let idx = ((control_point.y * WIDTH) + control_point.x) as usize;
         fake_console[idx] = 'o';
     }
 
-    for y in 0..10 {
+    for y in 0..HEIGHT {
         let mut line = String::from("");
-        let idx = y * 10;
-        for x in 0..10 {
+        let idx = (y * WIDTH) as usize;
+        for x in 0..WIDTH as usize {
             line.push(fake_console[idx + x]);
         }
         line.push('\n');
