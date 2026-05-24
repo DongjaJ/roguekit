@@ -1,7 +1,6 @@
 use bracket_geometry::prelude::*;
 use crossterm::queue;
 use crossterm::style::Print;
-use std::io::stdout;
 use std::io::Write;
 
 const WIDTH: i32 = 40;
@@ -37,7 +36,7 @@ fn main() {
             line.push(fake_console[idx + x]);
         }
         line.push('\n');
-        queue!(stdout(), Print(&line)).expect("Command fail");
+        queue!(std::io::stdout(), Print(&line)).expect("Command fail");
     }
-    stdout().flush().expect("Flush Fail");
+    std::io::stdout().flush().expect("Flush Fail");
 }
